@@ -1,208 +1,274 @@
+<div align="center">
+
 # timeline-generator
 
-Living drag-and-drop Gantt timeline as a single self-contained HTML.
+**A living, drag-and-drop Gantt timeline as a single self-contained HTML — for Claude Code, Codex CLI, and OpenCode.**
 
-**Source-agnostic.** GSD `.planning/`, Jira epic, Linear project, manual task list, or a JSON schema. Adapters normalize everything to one shape.
+Turn any task source — a GSD `.planning/` project, a Jira epic, a Linear project, a plain text list, or a JSON schema — into one interactive HTML file that updates as your work progresses.
 
-**Daily granularity.** Bars snap by day; tooltip shows exact date, weekday, duration. Today is highlighted with a vertical marker.
+```bash
+npx skills add FelipeOFF/timeline-generator
+```
 
-**Living document.** A `--hook` flag installs Claude Code hooks that re-run the renderer when work progresses (phase complete, file edited). Status updates re-paint bars (`pending → in-progress → done`) without losing user drag overrides.
+**Works on Mac, Windows, and Linux. Requires Node 18+ and Python 3.9+.**
+
+</div>
+
+---
+
+## What you get
+
+- **One file, fully self-contained.** No build step, no server, no dependencies — open the HTML in any browser.
+- **Daily granularity.** Bars snap by day; tooltip shows exact date, weekday, duration. A vertical golden line marks today.
+- **Drag to refine.** Move bars, resize them, reorder milestone cards. Changes persist in `localStorage` with Import / Export / Reset buttons.
+- **Source-agnostic.** Adapters normalize GSD, Jira, Linear, manual text, and raw JSON into one canonical schema.
+- **Living document.** Optional Claude Code hooks regenerate the HTML when a phase completes or `.planning/STATE.md` changes — drag overrides survive the regen.
+- **Status-aware bottom panel.** Three cards split the work into *Em execução agora* / *Próximas* / *Concluídas* based on today's date.
+
+---
 
 ## Install
 
-One-line `npx` per agent. Nothing else to type in the terminal — configuration happens inside the agent via `/timeline-generator --config`.
+One command. The [`skills`](https://github.com/vercel-labs/skills) CLI auto-detects which agents you have installed (Claude Code, Codex CLI, OpenCode, Cursor, Windsurf, and 40+ others), prompts which to install into, and wires up the skill correctly for each runtime.
 
 ```bash
-# Claude Code — global
-npx tiged FelipeOFF/timeline-generator ~/.claude/skills/timeline-generator
+# Interactive — pick scope (project / global) and agents
+npx skills add FelipeOFF/timeline-generator
 
-# Claude Code — project-scope (run inside the project root)
-npx tiged FelipeOFF/timeline-generator .claude/skills/timeline-generator
+# Install everywhere, skip prompts
+npx skills add FelipeOFF/timeline-generator --all
 
-# Codex CLI (OpenAI) — global
-npx tiged FelipeOFF/timeline-generator ~/.codex/skills/timeline-generator
+# Global, only Claude Code
+npx skills add FelipeOFF/timeline-generator -g -a claude-code
 
-# OpenCode (SST) — global
-npx tiged FelipeOFF/timeline-generator ~/.config/opencode/skills/timeline-generator
-# project-scope:
-npx tiged FelipeOFF/timeline-generator .opencode/skills/timeline-generator
+# Project-scope, Claude Code + Codex + OpenCode
+npx skills add FelipeOFF/timeline-generator -a claude-code,codex,opencode -y
 ```
 
-`tiged` is the maintained `degit` fork; either works (`npx degit FelipeOFF/timeline-generator ...`).
+Useful follow-ups:
 
-**Requirements:** `node >= 18`, `python3 >= 3.9`. Optional: `jq` only if you install hooks.
+```bash
+npx skills list                                 # show installed skills
+npx skills update timeline-generator            # pull latest
+npx skills remove timeline-generator            # uninstall
+```
 
-**Reinstall / update:** re-run the same command with `--force` to overwrite.
+**Restart your agent after install** so the new skill is picked up.
 
-### Configure (inside the agent — no extra terminal commands)
+---
 
-After install, open Claude Code / Codex / OpenCode and invoke the skill:
+## Getting started
+
+Open Claude Code, Codex CLI, or OpenCode and run the skill as a slash command. The agent handles everything — adapter parsing, schema generation, file writes — you never touch Python directly.
+
+### 1. Configure credentials (one-time, only if you use Jira or Linear)
 
 ```
 /timeline-generator --config
 ```
 
-The agent walks you through the credential prompts one question at a time (Jira base URL, Jira email, Jira API token, Linear API key) and persists everything to `config.json` inside the skill folder (`0600`, gitignored). Skip any prompt to leave the value blank.
+The agent walks you through the prompts one at a time:
 
-Other flags work the same way — invoke the slash command and the agent runs the right adapter:
+- Jira base URL (`https://yourcompany.atlassian.net`)
+- Jira email
+- Jira API token ([generate here](https://id.atlassian.com/manage-profile/security/api-tokens))
+- Linear API key (`lin_api_…`, [generate here](https://linear.app/settings/api))
+
+Skip any prompt to leave it blank. Answers are stored in `config.json` inside the skill folder (mode `0600`, gitignored). Nothing is ever committed.
+
+### 2. Generate a timeline
 
 ```
-/timeline-generator                                  # auto-detects GSD .planning/
+# From a GSD project (auto-detects .planning/ in the current directory)
+/timeline-generator
+
+# From a Jira epic — children are discovered automatically
 /timeline-generator https://x.atlassian.net/browse/PROJ-100
-/timeline-generator linear.app/team/issue/ABC-1
+
+# From a Linear project or issue
+/timeline-generator https://linear.app/team/project/abc
+
+# From a plain text list of tasks
+/timeline-generator tasks.txt --days 30 --title "Sprint 12"
+
+# From a canonical JSON schema
 /timeline-generator data.json
-/timeline-generator --hook                           # install Claude Code auto-update hooks
-/timeline-generator --redesign                       # delegate visual to ui-ux-pro-max
 ```
 
-## Quick start
+The agent writes `docs/timeline.html` by default and prints a `file://` link you can open in your browser.
 
-```bash
-# 0. (one-time, if using Jira or Linear) — interactive prompts for credentials
-python3 ~/.claude/skills/timeline-generator/scripts/config.py init
+### 3. Keep it alive (optional)
 
-# 1. From a GSD project (cwd has .planning/)
-python3 ~/.claude/skills/timeline-generator/scripts/generate.py --source gsd
-
-# 2. From a Jira epic URL (needs JIRA_BASE_URL+JIRA_EMAIL+JIRA_API_TOKEN via env or config)
-python3 .../scripts/generate.py --source jira --input https://x.atlassian.net/browse/PROJ-100
-
-# 3. From a Linear project/issue URL (needs LINEAR_API_KEY via env or config)
-python3 .../scripts/generate.py --source linear --input https://linear.app/team/project/abc
-
-# 4. From a text list
-python3 .../scripts/generate.py --source manual --input tasks.txt --days 30 --title "Sprint 12"
-
-# 5. From a JSON schema file
-python3 .../scripts/generate.py --source json --input my-data.json
+```
+/timeline-generator --hook
 ```
 
-## Config
+Installs two Claude Code hooks that auto-update the HTML when work progresses — no manual regeneration needed. Drag overrides are preserved in `localStorage`.
 
-Credentials resolve in this order: **env var > `config.json` > prompt user**.
+---
 
-```bash
-python3 .../scripts/config.py show              # print resolved (tokens masked)
-python3 .../scripts/config.py init              # interactive prompts
-python3 .../scripts/config.py set JIRA_BASE_URL=https://acme.atlassian.net
-python3 .../scripts/config.py unset JIRA_API_TOKEN
-python3 .../scripts/config.py get JIRA_BASE_URL
-```
+## Commands
 
-`config.json` lives inside the skill folder (`~/.claude/skills/timeline-generator/config.json`) with mode `0600`. Gitignored.
+| Command | What it does |
+|---------|-------------|
+| `/timeline-generator` | Auto-detect source (GSD `.planning/` if present) and generate the HTML |
+| `/timeline-generator <url-or-file>` | Generate from a Jira / Linear URL, a manual `.txt`, or a `.json` schema |
+| `/timeline-generator --config` | Interactive credential setup — agent asks one question at a time |
+| `/timeline-generator --update "<note>"` | Apply a progress note (`"PROJ-101 done"`, `"Phase 23 complete"`, `"PR #42 merged"`) |
+| `/timeline-generator --hook` | Install Claude Code hooks for auto-update on phase completion or file edits |
+| `/timeline-generator --hook --uninstall` | Remove installed hooks |
+| `/timeline-generator --redesign` | Delegate the visual layer to the `ui-ux-pro-max` subagent for a one-off restyle |
+| `/timeline-generator --regen` | Full regeneration ignoring previous output (browser drag overrides still survive) |
+| `/timeline-generator --out <path>` | Override the default output path (`docs/timeline.html`) |
+| `/timeline-generator --days <N>` | Force a specific timeline length in days |
 
-## Manual list format
+All flags compose. Example: `/timeline-generator data.json --out public/roadmap.html --days 60`.
 
-One task per line. Tags work anywhere in a line:
+---
+
+## Sources supported
+
+| Source | Auto-detected? | Auth required? |
+|--------|----------------|-----------------|
+| GSD `.planning/` | Yes (when run from a project root) | No |
+| Jira epic / issue URL | No — pass the URL | Yes (`/timeline-generator --config`) |
+| Linear project / issue URL | No — pass the URL | Yes (`/timeline-generator --config`) |
+| Plain text list (`.txt`) | No — pass the path | No |
+| Canonical JSON schema (`.json`) | No — pass the path | No |
+
+### Manual list format
+
+One task per line. Tags work anywhere in the line:
 
 ```
 - [x] Setup repo @dev #backend                # checklist + assignee + lane tag
-- [ ] Build API #backend PROJ-101                # Jira key auto-linked
-- [ ] Deploy staging *in-progress #devops        # explicit status tag
+- [ ] Build API #backend PROJ-101             # Jira key auto-linked
+- [ ] Deploy staging *in-progress #devops     # explicit status tag
 - [ ] Smoke tests !blocked #qa
-- Docs #docs https://example.com                 # URL becomes a link
+- Docs #docs https://example.com              # URL becomes a link
 ```
 
-Status tags: `~done`, `*in-progress`, `?in-review`, `!blocked`. Markdown checkboxes `[x]`/`[/]` also work.
+Status tags: `~done`, `*in-progress`, `?in-review`, `!blocked`. Markdown checkboxes `[x]` / `[/]` also work. Lanes are inferred from `#hashtag` segments — the agent will ask you to confirm them before rendering.
 
-## Schema (canonical)
+### JSON schema
 
-See `examples/schema.json`. Minimum required:
+See `examples/schema.json` for the full shape. Minimum required:
 
 ```json
 {
-  "meta": {"title":"T", "base_date":"YYYY-MM-DD", "total_days": 30},
-  "lanes": [{"id":"l1","label":"Lane","color":"#38bdf8","bars":[
-    {"id":"t1","label":"Task","span":[1,8],"status":"pending"}
-  ]}]
+  "meta": { "title": "T", "base_date": "YYYY-MM-DD", "total_days": 30 },
+  "lanes": [
+    {
+      "id": "l1", "label": "Lane", "color": "#38bdf8",
+      "bars": [
+        { "id": "t1", "label": "Task", "span": [1, 8], "status": "pending" }
+      ]
+    }
+  ]
 }
 ```
 
-`span: [start, end_exclusive]` in day units (1 ≤ start < end ≤ total_days + 1).
+`span: [start, end_exclusive]` in day units (`1 ≤ start < end ≤ total_days + 1`). Within a single lane, bars **must not overlap** — parallel work belongs in separate lanes.
 
-## Updating the timeline
+---
 
-```bash
-# After "PROJ-N done" or "Phase N complete" — patches the inline JSON in place
-python3 .../scripts/update.py --note "PROJ-101 done" --out docs/timeline.html
-python3 .../scripts/update.py --note "Phase 23 complete"
-python3 .../scripts/update.py --note "PR #42 merged"
+## Live HTML features
 
-# Re-run the original generator (reads <out>.tlconfig.json sidecar)
-python3 .../scripts/update.py --auto
+Every generated file ships with these built in — no configuration needed:
 
-# Only refresh if file mtime changed (used by hook)
-python3 .../scripts/update.py --watch .planning/STATE.md --auto
+- **Today marker.** A vertical golden line auto-positions itself via `new Date()` on every page load.
+- **Drag-to-move and drag-to-resize bars.** Day-snap, tooltip with date + weekday + duration.
+- **Drag-to-reorder milestone cards.** Standard HTML5 drag-and-drop.
+- **Bottom panel.** Three sections, recomputed live from today's date:
+  - Em execução agora — `start ≤ today < end`
+  - Próximas — sorted by start ascending
+  - Concluídas — `status: done` or `end ≤ today`
+- **Persistence.** Drag changes save to `localStorage` keyed by bar `id`.
+- **Import / Export / Reset.** Buttons top-right of the timeline export overrides as JSON, reload from a file, or clear everything.
+
+Regenerating the HTML does **not** wipe your drag overrides — they live in the browser.
+
+---
+
+## Hooks (auto-update)
+
+```
+/timeline-generator --hook
 ```
 
-## Hooks (--hook)
+Installs two entries in your project's `.claude/settings.json`:
 
-```bash
-# Install (project-scope: .claude/settings.json in cwd)
-bash ~/.claude/skills/timeline-generator/scripts/install-hook.sh --out docs/timeline.html
+| Hook | Fires when | What it does |
+|------|-----------|-------------|
+| `Stop` | After an assistant turn finishes | Runs the updater idempotently |
+| `PostToolUse` | After `Edit` / `Write` touches `.planning/STATE.md` | Regenerates only if mtime changed |
 
-# Global (~/.claude/settings.json)
-bash .../scripts/install-hook.sh --scope global --out docs/timeline.html
+Use `--scope global` to install in `~/.claude/settings.json` instead. `--uninstall` removes both entries. Requires `jq` (`brew install jq`).
 
-# Uninstall
-bash .../scripts/install-hook.sh --uninstall --out docs/timeline.html
-```
+---
 
-Installed hooks:
-- `Stop` (after assistant turn) → `update.py --auto` (idempotent)
-- `PostToolUse` (Edit/Write) → `update.py --watch .planning/STATE.md`
+## Configuration
 
-Requires `jq` (`brew install jq`).
+| Setting | Where it lives | Set via |
+|---------|----------------|---------|
+| `JIRA_BASE_URL` | `config.json` or env | `/timeline-generator --config` |
+| `JIRA_EMAIL` | `config.json` or env | `/timeline-generator --config` |
+| `JIRA_API_TOKEN` | `config.json` or env | `/timeline-generator --config` |
+| `LINEAR_API_KEY` | `config.json` or env | `/timeline-generator --config` |
 
-## Drag overrides
+Resolution order: **env var → `config.json` → prompt the user**.
 
-Drag-to-move and drag-to-resize on the Gantt bars are persisted in `localStorage` keyed by bar `id`. Buttons in the top-right of the page:
+`config.json` lives inside the skill folder with mode `0600` and is gitignored. Tokens are masked when printed.
 
-- **⬇ Export** — download overrides as JSON
-- **⬆ Import** — load overrides JSON (pick file)
-- **↺ Reset** — clear all overrides and re-render
+---
 
-Regenerating the HTML does NOT lose your overrides (they live in browser storage).
+## How it works
 
-## Today marker + bottom panel
-
-Page detects `new Date()` and:
-- Renders a vertical golden line at today's day column
-- Bottom 3 cards split tasks into:
-  - 🔥 *Em execução agora* — `start ≤ today < end`
-  - 📋 *Próximas* — sorted by start ascending
-  - ✅ *Concluídas* — status=done or `end ≤ today`
-
-## --redesign (UI iteration via ui-ux-pro-max)
-
-Pass `--redesign` to print a marker the skill workflow detects and invokes the `ui-ux-pro-max` subagent with the schema + current template. Subagent can rewrite the visual.
-
-## File layout
+The skill is a plain folder. Adapters parse each source into the canonical schema; the orchestrator fills an HTML template with that schema and writes the result. The LLM only drives the workflow — it never edits the template by hand.
 
 ```
 timeline-generator/
-├── SKILL.md
-├── README.md
+├── SKILL.md           ← agent-facing instructions
+├── README.md          ← this file
 ├── template/
 │   ├── timeline.html.template
-│   └── timeline.js
+│   └── timeline.js    ← drag + today marker + import/export + bottom panel
 ├── scripts/
-│   ├── generate.py
-│   ├── update.py
+│   ├── generate.py    ← orchestrator (adapter → render → write)
+│   ├── update.py      ← incremental patch + --auto detection
+│   ├── config.py      ← credential management
 │   └── install-hook.sh
 ├── adapters/
-│   ├── gsd.py
-│   ├── jira.py
-│   ├── linear.py
-│   ├── manual.py
-│   └── json.py
+│   ├── gsd.py         ← .planning/STATE.md + ROADMAP.md → Schema
+│   ├── jira.py        ← URL / epic key → Schema
+│   ├── linear.py      ← URL / issue → Schema
+│   ├── manual.py      ← text list → Schema
+│   └── json.py        ← raw JSON pass-through
 └── examples/
-    └── schema.json
+    └── schema.json    ← canonical data shape
 ```
+
+You never call these scripts directly. The agent dispatches them based on the slash command.
+
+---
 
 ## Limitations / known caveats
 
-- Pin positions (interventions) only render at integer days (no fractional).
-- Manual adapter `--input -` (stdin) requires explicit path (`tasks.txt`); use a file for now.
-- Jira/Linear adapters group lanes by assignee. To split differently, build the schema yourself and use `--source json`.
-- `--redesign` is a hand-off marker; the actual visual iteration is performed by the calling agent (Skill workflow), not by this CLI.
+- Pin positions (interventions) only render at integer days — no fractional placement.
+- Manual adapter does not yet read from stdin; pass a file path.
+- Jira and Linear adapters group lanes by assignee. To group differently (by team, by component, by phase), generate a custom JSON schema and pass it instead.
+- `--redesign` is a hand-off marker — the actual visual iteration is performed by the `ui-ux-pro-max` subagent, which must be installed in the host runtime.
+
+---
+
+## Requirements
+
+- **Node 18+** — for `npx tiged` install only.
+- **Python 3.9+** — runs the adapters and the renderer.
+- **`jq`** — only needed if you install hooks (`brew install jq`, `apt install jq`, etc).
+
+---
+
+## License
+
+MIT.
