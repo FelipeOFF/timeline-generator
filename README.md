@@ -8,6 +8,53 @@ Living drag-and-drop Gantt timeline as a single self-contained HTML.
 
 **Living document.** A `--hook` flag installs Claude Code hooks that re-run the renderer when work progresses (phase complete, file edited). Status updates re-paint bars (`pending → in-progress → done`) without losing user drag overrides.
 
+## Install
+
+One-line `npx` per agent. Nothing else to type in the terminal — configuration happens inside the agent via `/timeline-generator --config`.
+
+```bash
+# Claude Code — global
+npx tiged FelipeOFF/timeline-generator ~/.claude/skills/timeline-generator
+
+# Claude Code — project-scope (run inside the project root)
+npx tiged FelipeOFF/timeline-generator .claude/skills/timeline-generator
+
+# Codex CLI (OpenAI) — global
+npx tiged FelipeOFF/timeline-generator ~/.codex/skills/timeline-generator
+
+# OpenCode (SST) — global
+npx tiged FelipeOFF/timeline-generator ~/.config/opencode/skills/timeline-generator
+# project-scope:
+npx tiged FelipeOFF/timeline-generator .opencode/skills/timeline-generator
+```
+
+`tiged` is the maintained `degit` fork; either works (`npx degit FelipeOFF/timeline-generator ...`).
+
+**Requirements:** `node >= 18`, `python3 >= 3.9`. Optional: `jq` only if you install hooks.
+
+**Reinstall / update:** re-run the same command with `--force` to overwrite.
+
+### Configure (inside the agent — no extra terminal commands)
+
+After install, open Claude Code / Codex / OpenCode and invoke the skill:
+
+```
+/timeline-generator --config
+```
+
+The agent walks you through the credential prompts one question at a time (Jira base URL, Jira email, Jira API token, Linear API key) and persists everything to `config.json` inside the skill folder (`0600`, gitignored). Skip any prompt to leave the value blank.
+
+Other flags work the same way — invoke the slash command and the agent runs the right adapter:
+
+```
+/timeline-generator                                  # auto-detects GSD .planning/
+/timeline-generator https://x.atlassian.net/browse/PROJ-100
+/timeline-generator linear.app/team/issue/ABC-1
+/timeline-generator data.json
+/timeline-generator --hook                           # install Claude Code auto-update hooks
+/timeline-generator --redesign                       # delegate visual to ui-ux-pro-max
+```
+
 ## Quick start
 
 ```bash

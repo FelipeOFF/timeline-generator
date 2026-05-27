@@ -28,13 +28,19 @@ Generates a single self-contained HTML file with an interactive Gantt timeline. 
 | `--update "<msg>"` | Apply explicit progress note ("PROJ-N done", "PR #N merged", "Phase N complete") |
 | `--out <path>` | Output HTML location (default: `docs/timeline.html`) |
 | `--days <N>` | Force timeline length in days (default: derived from tasks + 10% buffer) |
-| `--config` | Interactive config (`scripts/config.py init`) — prompts JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN, LINEAR_API_KEY and saves to `config.json` (mode 0600) inside the skill folder |
+| `--config` | Agent-driven setup. The skill MUST ask the user via `AskUserQuestion` (one prompt per field) for JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN, LINEAR_API_KEY, then persist each non-empty answer via `python3 scripts/config.py set KEY=VAL` (mode 0600, gitignored). Do NOT shell out to `config.py init` (that requires stdin and won't work inside an agent session). |
 | `--config show` | Print resolved config (env > config.json), masks tokens |
 | `--config set KEY=VAL` | Set one or more keys non-interactively |
 
 ## Workflow
 
 When invoked:
+
+0. **`--config` short-circuit.** If `--config` is the only arg, run the agent-driven Q&A loop:
+   - For each `KEY` in `[JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN, LINEAR_API_KEY]`, call `AskUserQuestion` with the current resolved value (masked for tokens) as hint and "leave blank to skip" as an option.
+   - Persist each non-empty answer by shelling out to `python3 scripts/config.py set KEY=VAL` (one call per key, or batched).
+   - Print final `python3 scripts/config.py show` to confirm.
+   - Exit. Do NOT proceed to render a timeline in this mode.
 
 1. **Parse args.** If no source given and cwd has `.planning/`, default to GSD adapter. Else `AskUserQuestion` for source.
 
