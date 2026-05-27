@@ -6,6 +6,8 @@
 
 Turn any task source — a GSD `.planning/` project, a Jira epic, a Linear project, a plain text list, or a JSON schema — into one interactive HTML file that updates as your work progresses.
 
+![timeline-generator demo](examples/demo.png)
+
 ```bash
 npx skills add FelipeOFF/timeline-generator
 ```
